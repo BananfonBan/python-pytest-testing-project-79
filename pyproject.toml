@@ -10,11 +10,13 @@ python = "^3.12"
 pytest-cov = "^5.0.0"
 requests = "^2.32.3"
 requests-mock = "^1.12.1"
+pook = "^2.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.0"
 pytest = "^8.3.2"
+pook = "^2.0.0"
 
 [build-system]
 requires = ["poetry-core"]
