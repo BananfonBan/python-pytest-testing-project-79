@@ -12,6 +12,9 @@ requests = "^2.32.3"
 requests-mock = "^1.12.1"
 pook = "^2.0.0"
 
+[tool.poetry.scripts]
+page-loader = "PageLoader.page_loader:download"
+
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.1.0"
