@@ -1,5 +1,6 @@
 [tool.poetry]
 name = "hexlet-code"
+packages = [{include = "PageLoader"}]
 version = "0.1.0"
 description = ""
 authors = ["BananfonBan <bananfonban@yandex.ru>"]
@@ -13,7 +14,7 @@ requests-mock = "^1.12.1"
 pook = "^2.0.0"
 
 [tool.poetry.scripts]
-page-loader = "PageLoader.page_loader:download"
+page-loader = "PageLoader.main:page_loader_in_line"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -39,7 +39,7 @@ def test_download_push_request(tmp_path):
 
 
 def test_download_create_correct_file(tmp_path, data_html):
-    name_file = download(tmp_path, "https://test.io/1", client=fake_request(data_html))
+    name_file = download("https://test.io/1", tmp_path, client=fake_request(data_html))
 
     with open(f"{tmp_path}/test-io-1.html", "r") as result_file:
         file_data = result_file.read()

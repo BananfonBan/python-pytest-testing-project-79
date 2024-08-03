@@ -12,7 +12,7 @@ def parsing_url_to_name(url):
     return parse_hostname + parse_path
 
 
-def download(path_to_file=Path.cwd(), url=None, client=requests):
+def download(url=None, path_to_file=Path.cwd(), client=requests):
     """Creates a file with the html code of the specified url
     in the specified directory
     """
