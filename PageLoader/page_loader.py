@@ -36,7 +36,7 @@ def download(url=None, path_to_file=Path.cwd(), client=requests):
     src = req.text
 
     # Записываем в файл в указанной директории
-    with open(f"{path_to_file}/{name_file}.html", "w") as myfile:
+    with open(f"{path_to_file}/{name_file}.html", "w", encoding="utf-8") as myfile:
         myfile.write(src)
 
     return os.path.normpath(os.path.join(path_to_file, f"{name_file}.html",))
