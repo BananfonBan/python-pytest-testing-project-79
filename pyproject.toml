@@ -21,6 +21,7 @@ page-loader = "PageLoader.main:page_loader_in_line"
 flake8 = "^7.1.0"
 pytest = "^8.3.2"
 pook = "^2.0.0"
+beautifulsoup4 = "^4.12.3"
 
 [build-system]
 requires = ["poetry-core"]
