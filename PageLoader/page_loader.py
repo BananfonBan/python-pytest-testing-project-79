@@ -2,7 +2,10 @@ import os
 from pathlib import Path
 import re
 import requests
-from PageLoader.UrlClass import Url
+if __name__ == "__main__":
+    from UrlClass import Url
+else:
+    from PageLoader.UrlClass import Url
 from bs4 import BeautifulSoup
 
 
@@ -100,17 +103,11 @@ def make_dir_with_files(path_to_dir, url):
     url_scheme = Url(url).get_scheme()
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
     img_link_list = parse_img_link(html_file_path, url)
-    print(img_link_list)
     for img_link in img_link_list:
         # Если файл находиться по тому же адресу, что и страница
         if img_link[0] == "/" and img_link[0:2] != "//":
-            print(download_img(dir_path, url=f"{url_scheme}://{url_netlock}{img_link}"))
+            download_img(dir_path, url=f"{url_scheme}://{url_netlock}{img_link}")
         elif img_link[0:2] == "//":
-            print(img_link)
-            print(download_img(dir_path, url=f"http:{img_link}"))
+            download_img(dir_path, url=f"http:{img_link}")
         elif img_link[0:4] == "http":
-            print(download_img(dir_path, url=img_link))
-
-
-# if __name__ == "__main__":
-#     pass
+            download_img(dir_path, url=img_link)
