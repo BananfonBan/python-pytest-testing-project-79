@@ -1,6 +1,6 @@
 import os
 import argparse
-from PageLoader.page_loader import download
+from PageLoader.page_loader import download, make_dir_with_files
 
 
 def page_loader_in_line():
@@ -16,4 +16,5 @@ def page_loader_in_line():
                         help="The URL of the site where the html code is downloaded from")
     args = parser.parse_args()
     path_file = download(url=args.url, path_to_file=args.output)
+    make_dir_with_files(url=args.url, path_to_dir=args.output)
     print(path_file)

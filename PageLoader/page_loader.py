@@ -1,31 +1,44 @@
 import os
 from pathlib import Path
+import re
 import requests
 from PageLoader.UrlClass import Url
 from bs4 import BeautifulSoup
 
 
-def parsing_url_to_name(url):
+def url_to_name(url):
     parse_url = Url(url)
     parse_hostname = "-".join(parse_url.get_hostname().split("."))
-    parse_path = "-".join(parse_url.get_path().split("/"))
+    parse_path = "-".join(re.split("/", parse_url.get_path()))
 
     return f"{parse_hostname}{parse_path}"
 
 
-def parse_img_link(path_to_html_file, url_hostname):
-    with open(path_to_html_file,) as html_file:
+def parse_img_link(path_to_html_file, url):
+    with open(path_to_html_file, "r", encoding="utf-8") as html_file:
         soup = BeautifulSoup(html_file, "html.parser")
     # Создает список со всеми ссылками на изображения
     # И изменяет ссылки в html файлы на локальные пути до изображений
+    dir_name = f"{url_to_name(url)}_files"
+    url_hostname = "-".join(Url(url).get_hostname().split("."))
     img_list = []
-    for img in soup.find_all("img"):
-        img_list.append(img["src"])
-        if img["src"][0] == "/":
-            img["src"] = parsing_url_to_name(f"{url_hostname}{img['src']}")
-        else:
-            img["src"] = parsing_url_to_name(img['src'])
+    for img in soup("img"):
+        try:
+            img_list.append(img["src"])
+            # Формирование и изменение на локальную ссылку
+            if img["src"][0] == "/" and img["src"][:2] != "//":
+                img_name = f"{url_hostname}{url_to_name(img['src'])}"
+                img["src"] = f"{dir_name}/{img_name}"
+            elif img["src"][:4] == "http" or img["src"][:2] == "//":
+                img_name = url_to_name(img['src'])
+                img["src"] = f"{dir_name}/{img_name}"
+            else:
+                img_list.pop()
+        except KeyError:
+            pass
 
+    with open(path_to_html_file, "w", encoding="utf-8") as file:
+        file.write(str(soup))
     return img_list
 
 
@@ -37,12 +50,14 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     if not Path(path_to_file).exists():
         raise FileNotFoundError("The directory does not exist")
 
-    name_file = parsing_url_to_name(url)
+    name_file = url_to_name(url)
     # Говорим веб-серверу, что хотим получить html
     st_accept = "text/html"
 
     # Формируем хеш заголовков
-    headers = {"Accept": st_accept}
+    headers = {"Accept": st_accept,
+               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+               AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
 
     # Отправляем запрос с заголовками по нужному адресу
     req = client.get(url=url, headers=headers)
@@ -58,33 +73,44 @@ def download(url, path_to_file=Path.cwd(), client=requests):
 
 
 def download_img(path_to_dir, url, client=requests):
-    img_name = parsing_url_to_name(url)
-    request = client.get(url)
-    correct_extension = ["png", "jpg", "gif"]
-    if request.ok:
-        if img_name[-3:] in correct_extension:
-            path_img = f"{path_to_dir}/{img_name}"
-        else:
-            path_img = f"{path_to_dir}/{img_name}.jpg"
-        with open(path_img, "wb") as file:
-            file.write(request.content)
-        return path_img
-    else:
-        return None
+    img_name = url_to_name(url)
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+               AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
+    try:
+        request = client.get(url, headers=headers)
+        correct_extension = ["png", "jpg", "gif", "JPG", "svg"]
+        if request.ok:
+            if img_name[-3:] in correct_extension:
+                path_img = f"{path_to_dir}/{img_name}"
+            else:
+                path_img = f"{path_to_dir}/{img_name}.jpg"
+            with open(path_img, "wb") as file:
+                file.write(request.content)
+            return path_img
+    except requests.RequestException:
+        pass
 
 
 def make_dir_with_files(path_to_dir, url):
-    name_dir = parsing_url_to_name(url) + "_files"
+    name_dir = url_to_name(url) + "_files"
     dir_path = f"{path_to_dir}/{name_dir}"
     os.mkdir(dir_path)
 
     url_netlock = Url(url).get_hostname()
-    html_file_path = f"{path_to_dir}/{parsing_url_to_name(url)}.html"
+    url_scheme = Url(url).get_scheme()
+    html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
     img_link_list = parse_img_link(html_file_path, url)
-
+    print(img_link_list)
     for img_link in img_link_list:
         # Если файл находиться по тому же адресу, что и страница
-        if img_link[0] == "/":
-            download_img(dir_path, f"{url_netlock}{img_link}")
-        else:
-            download_img(dir_path, url=img_link)
+        if img_link[0] == "/" and img_link[0:2] != "//":
+            print(download_img(dir_path, url=f"{url_scheme}://{url_netlock}{img_link}"))
+        elif img_link[0:2] == "//":
+            print(img_link)
+            print(download_img(dir_path, url=f"http:{img_link}"))
+        elif img_link[0:4] == "http":
+            print(download_img(dir_path, url=img_link))
+
+
+# if __name__ == "__main__":
+#     pass

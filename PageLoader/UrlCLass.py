@@ -10,7 +10,7 @@ class Url():
         return self.http.scheme
 
     def get_hostname(self):
-        return self.http.hostname
+        return self.http.netloc
 
     def get_path(self):
         return self.http.path
