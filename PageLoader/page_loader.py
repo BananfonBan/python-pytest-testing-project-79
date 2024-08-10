@@ -12,12 +12,12 @@ from bs4 import BeautifulSoup
 def url_to_name(url):
     parse_url = Url(url)
     parse_hostname = "-".join(parse_url.get_hostname().split("."))
-    parse_path = "-".join(re.split("/", parse_url.get_path()))
+    parse_path = "-".join(re.split("/|_", parse_url.get_path()))
 
     return f"{parse_hostname}{parse_path}"
 
 
-def parse_img_link(path_to_html_file, url):
+def parse_img_link(path_to_html_file, url, only_local_img=True):
     with open(path_to_html_file, "r", encoding="utf-8") as html_file:
         soup = BeautifulSoup(html_file, "html.parser")
     # Создает список со всеми ссылками на изображения
@@ -25,24 +25,41 @@ def parse_img_link(path_to_html_file, url):
     dir_name = f"{url_to_name(url)}_files"
     url_hostname = "-".join(Url(url).get_hostname().split("."))
     img_list = []
-    for img in soup("img"):
-        try:
-            img_list.append(img["src"])
+    if only_local_img:
+        for img in soup("img"):
+            img_link = img["src"]
+            local_link = img_link[0] == "/" and img_link[:2] != "//"
+            identical_hostname = Url(img_link).get_hostname() == Url(url).get_hostname()
             # Формирование и изменение на локальную ссылку
-            if img["src"][0] == "/" and img["src"][:2] != "//":
-                img_name = f"{url_hostname}{url_to_name(img['src'])}"
-                img["src"] = f"{dir_name}/{img_name}"
-            elif img["src"][:4] == "http" or img["src"][:2] == "//":
-                img_name = url_to_name(img['src'])
+            if local_link or identical_hostname:
+                local_img_name = f"{dir_name}/{url_hostname}{url_to_name(img_link)}"
+                identical_img_name = f"{dir_name}/{url_to_name(img_link)}"
+                img["src"] = local_img_name if local_link else identical_img_name
+                img_list.append(img_link)
+
+    if not only_local_img:
+        for img in soup("img"):
+            img_link = img["src"]
+            local_link = img_link[0] == "/" and img_link[:2] != "//"
+            identical_hostname = Url(img_link).get_hostname() == Url(url).get_hostname()
+            # Формирование и изменение на локальную ссылку
+            if local_link or identical_hostname:
+                local_img_name = f"{dir_name}/{url_hostname}{url_to_name(img_link)}"
+                identical_img_name = f"{dir_name}/{url_to_name(img_link)}"
+                img["src"] = local_img_name if local_link else identical_img_name
+                img_list.append(img_link)
+            elif img_link[:4] == "http" or img_link[:2] == "//":
+                img_name = url_to_name(img_link)
                 img["src"] = f"{dir_name}/{img_name}"
             else:
                 img_list.pop()
-        except KeyError:
-            pass
 
     with open(path_to_html_file, "w", encoding="utf-8") as file:
         file.write(str(soup))
     return img_list
+
+
+# def parse_content_html_file(path_to_file):
 
 
 def download(url, path_to_file=Path.cwd(), client=requests):
@@ -53,7 +70,6 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     if not Path(path_to_file).exists():
         raise FileNotFoundError("The directory does not exist")
 
-    name_file = url_to_name(url)
     # Говорим веб-серверу, что хотим получить html
     st_accept = "text/html"
 
@@ -68,11 +84,13 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     # Считываем текст HTML-документа
     src = req.text
 
+    name_file = url_to_name(url)
+    file_path = os.path.normpath(os.path.join(path_to_file, f"{name_file}.html"))
     # Записываем в файл в указанной директории
-    with open(f"{path_to_file}/{name_file}.html", "w", encoding="utf-8") as myfile:
+    with open(file_path, "w", encoding="utf-8") as myfile:
         myfile.write(src)
 
-    return os.path.normpath(os.path.join(path_to_file, f"{name_file}.html",))
+    return file_path
 
 
 def download_img(path_to_dir, url, client=requests):
@@ -81,7 +99,7 @@ def download_img(path_to_dir, url, client=requests):
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
     try:
         request = client.get(url, headers=headers)
-        correct_extension = ["png", "jpg", "gif", "JPG", "svg"]
+        correct_extension = ["png", "jpg", "gif", "JPG",]
         if request.ok:
             if img_name[-3:] in correct_extension:
                 path_img = f"{path_to_dir}/{img_name}"
