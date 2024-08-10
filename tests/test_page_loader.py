@@ -156,3 +156,22 @@ def test_parse_local_img_link(tmp_path, fixture_html_1):
 
     assert new_img_list == ["test-net_files/test-net-assets-professions-python.png",
                             "test-net_files/test-net-img.jpg"]
+
+
+def test_parse_img_link(tmp_path, fixture_html_2):
+    path_file = f"{tmp_path}/file.html"
+    with open(path_file, "w", encoding="utf-8") as file:
+        file.write(fixture_html_2)
+    result_list = parse_img_link(path_file, url="https://test.net", only_local_img=False)
+
+    assert result_list == ["/assets/professions/python.png",
+                           "https://i.ytimg.com/vi/mpvdTb2J9dg/hqdefault.jpg"]
+
+    with open(path_file, "r", encoding="utf-8") as correct_file:
+        soup = BeautifulSoup(correct_file, "html.parser")
+    new_img_list = []
+    for img in soup.find_all("img"):
+        new_img_list.append(img["src"])
+
+    assert new_img_list == ["test-net_files/test-net-assets-professions-python.png",
+                            "test-net_files/i-ytimg-com-vi-mpvdTb2J9dg-hqdefault.jpg"]

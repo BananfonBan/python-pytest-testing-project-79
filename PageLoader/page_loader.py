@@ -51,8 +51,7 @@ def parse_img_link(path_to_html_file, url, only_local_img=True):
             elif img_link[:4] == "http" or img_link[:2] == "//":
                 img_name = url_to_name(img_link)
                 img["src"] = f"{dir_name}/{img_name}"
-            else:
-                img_list.pop()
+                img_list.append(img_link)
 
     with open(path_to_html_file, "w", encoding="utf-8") as file:
         file.write(str(soup))
