@@ -1,12 +1,14 @@
 import os
 from pathlib import Path
 import re
+from urllib.parse import urljoin
 import requests
 if __name__ == "__main__":
     from UrlClass import Url
 else:
     from PageLoader.UrlClass import Url
 from bs4 import BeautifulSoup
+from url_normalize import url_normalize
 
 
 def url_to_name(url):
@@ -23,42 +25,25 @@ def parse_img_link(path_to_html_file, url, only_local_img=True):
     # Создает список со всеми ссылками на изображения
     # И изменяет ссылки в html файлы на локальные пути до изображений
     dir_name = f"{url_to_name(url)}_files"
-    url_hostname = "-".join(Url(url).get_hostname().split("."))
+    url_hostname = Url(url).get_hostname()
     img_list = []
-    if only_local_img:
-        for img in soup("img"):
-            img_link = img["src"]
-            local_link = img_link[0] == "/" and img_link[:2] != "//"
-            identical_hostname = Url(img_link).get_hostname() == Url(url).get_hostname()
-            # Формирование и изменение на локальную ссылку
-            if local_link or identical_hostname:
-                local_img_name = f"{dir_name}/{url_hostname}{url_to_name(img_link)}"
-                identical_img_name = f"{dir_name}/{url_to_name(img_link)}"
-                img["src"] = local_img_name if local_link else identical_img_name
-                img_list.append(img_link)
-
-    if not only_local_img:
-        for img in soup("img"):
-            img_link = img["src"]
-            local_link = img_link[0] == "/" and img_link[:2] != "//"
-            identical_hostname = Url(img_link).get_hostname() == Url(url).get_hostname()
-            # Формирование и изменение на локальную ссылку
-            if local_link or identical_hostname:
-                local_img_name = f"{dir_name}/{url_hostname}{url_to_name(img_link)}"
-                identical_img_name = f"{dir_name}/{url_to_name(img_link)}"
-                img["src"] = local_img_name if local_link else identical_img_name
-                img_list.append(img_link)
-            elif img_link[:4] == "http" or img_link[:2] == "//":
-                img_name = url_to_name(img_link)
-                img["src"] = f"{dir_name}/{img_name}"
-                img_list.append(img_link)
+    for img in soup("img"):
+        img_link = url_normalize(img["src"])
+        local_link = img_link[0] == "/" and img_link[:2] != "//"
+        identical_hostname = Url(img_link).get_hostname() == url_hostname
+        # Формирование и изменение на локальную ссылку
+        if local_link or identical_hostname:
+            img_link = urljoin(f"https://{url_hostname}", img_link)
+            img["src"] = f"{dir_name}/{url_to_name(img_link)}"
+            img_list.append(img_link)
+        elif (not only_local_img) and img_link[:4] == "http":
+            img_name = url_to_name(img_link)
+            img["src"] = f"{dir_name}/{img_name}"
+            img_list.append(img_link)
 
     with open(path_to_html_file, "w", encoding="utf-8") as file:
         file.write(str(soup))
     return img_list
-
-
-# def parse_content_html_file(path_to_file):
 
 
 def download(url, path_to_file=Path.cwd(), client=requests):
@@ -116,15 +101,8 @@ def make_dir_with_files(path_to_dir, url):
     dir_path = f"{path_to_dir}/{name_dir}"
     os.mkdir(dir_path)
 
-    url_netlock = Url(url).get_hostname()
-    url_scheme = Url(url).get_scheme()
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
     img_link_list = parse_img_link(html_file_path, url)
+
     for img_link in img_link_list:
-        # Если файл находиться по тому же адресу, что и страница
-        if img_link[0] == "/" and img_link[0:2] != "//":
-            download_img(dir_path, url=f"{url_scheme}://{url_netlock}{img_link}")
-        elif img_link[0:2] == "//":
-            download_img(dir_path, url=f"http:{img_link}")
-        elif img_link[0:4] == "http":
-            download_img(dir_path, url=img_link)
+        download_img(dir_path, img_link)

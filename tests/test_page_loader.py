@@ -34,13 +34,6 @@ def fixture_url():
     return data
 
 
-def test_url_to_name(fixture_url):
-    name_url = []
-    for url in fixture_url["url"]:
-        name_url.append(url_to_name(url))
-    assert name_url == fixture_url["name"]
-
-
 @pytest.fixture
 def fixture_html_1():
     path_dir = Path.cwd()
@@ -71,6 +64,13 @@ def fixture_img_2():
     with open(f"{path_dir}/tests/Avagadro.png", 'rb') as f:
         data = f.read()
     return data
+
+
+def test_url_to_name(fixture_url):
+    name_url = []
+    for url in fixture_url["url"]:
+        name_url.append(url_to_name(url))
+    assert name_url == fixture_url["name"]
 
 
 @pook.on
@@ -145,7 +145,7 @@ def test_parse_local_img_link(tmp_path, fixture_html_1):
         file.write(fixture_html_1)
     result_list = parse_img_link(path_file, url="https://test.net", only_local_img=True)
 
-    assert result_list == ["/assets/professions/python.png",
+    assert result_list == ["https://test.net/assets/professions/python.png",
                            "https://test.net/img.jpg"]
 
     with open(path_file, "r", encoding="utf-8") as correct_file:
@@ -164,8 +164,9 @@ def test_parse_img_link(tmp_path, fixture_html_2):
         file.write(fixture_html_2)
     result_list = parse_img_link(path_file, url="https://test.net", only_local_img=False)
 
-    assert result_list == ["/assets/professions/python.png",
-                           "https://i.ytimg.com/vi/mpvdTb2J9dg/hqdefault.jpg"]
+    assert result_list == ["https://test.net/assets/professions/python.png",
+                           "https://i.ytimg.com/vi/mpvdTb2J9dg/hqdefault.jpg",
+                           "https://yan.de.re/tests/path"]
 
     with open(path_file, "r", encoding="utf-8") as correct_file:
         soup = BeautifulSoup(correct_file, "html.parser")
@@ -174,4 +175,5 @@ def test_parse_img_link(tmp_path, fixture_html_2):
         new_img_list.append(img["src"])
 
     assert new_img_list == ["test-net_files/test-net-assets-professions-python.png",
-                            "test-net_files/i-ytimg-com-vi-mpvdTb2J9dg-hqdefault.jpg"]
+                            "test-net_files/i-ytimg-com-vi-mpvdTb2J9dg-hqdefault.jpg",
+                            "test-net_files/yan-de-re-tests-path"]
