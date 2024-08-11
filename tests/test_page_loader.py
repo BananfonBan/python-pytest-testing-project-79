@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup
 import pook
-from PageLoader.page_loader import download, download_img, parse_img_link, url_to_name
+from PageLoader.page_loader import download, download_content, parse_content_link, url_to_name
 
 
 class fake_request:
@@ -107,7 +107,7 @@ def test_download_img(tmp_path, fixture_img_1, fixture_img_2):
     client_2 = fake_request(fixture_img_2)
 
     url_1 = "https://justcat.cute/black/cat.jpg"
-    path_img_1 = download_img(tmp_path, url_1, client=client_1)
+    path_img_1 = download_content(tmp_path, url_1, client=client_1)
     path_file = Path(path_img_1)
     with open(path_img_1, "rb") as img_file:
         file_data = img_file.read()
@@ -116,7 +116,7 @@ def test_download_img(tmp_path, fixture_img_1, fixture_img_2):
     assert file_data == fixture_img_1
 
     url_2 = "https://sciense.co/chemists/avagadro.png"
-    path_img_2 = download_img(tmp_path, url_2, client=client_2)
+    path_img_2 = download_content(tmp_path, url_2, client=client_2)
     path_file = Path(path_img_2)
     with open(path_img_2, "rb") as img_file:
         file_data = img_file.read()
@@ -130,50 +130,91 @@ def test_download_img_requests(tmp_path):
     mock_1 = pook.get('http://test.jpg')
     assert mock_1.calls == 0
 
-    download_img(url="http://test.jpg", path_to_dir=tmp_path)
+    download_content(url="http://test.jpg", path_to_dir=tmp_path)
     assert mock_1.calls == 1
 
     mock_2 = pook.get("http://test_2/something.png", reply=404)
-    result = download_img(url="http://test_2/something.png", path_to_dir=tmp_path)
+    result = download_content(url="http://test_2/something.png", path_to_dir=tmp_path)
     assert mock_2.calls == 1
     assert result is None
 
 
-def test_parse_local_img_link(tmp_path, fixture_html_1):
+def test_parse_local_content_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
-        file.write(fixture_html_1)
-    result_list = parse_img_link(path_file, url="https://test.net", only_local_img=True)
+        file.write(fixture_html_2)
+    tags = ["img", "script", "link"]
+    local_link = set(parse_content_link(path_file, "https://test.net", tags=tags))
 
-    assert result_list == ["https://test.net/assets/professions/python.png",
-                           "https://test.net/img.jpg"]
+    assert local_link == {
+        "https://test.net/assets/professions/python.png",
+        "https://test.net/page/path/part",
+        "https://test.net/page/tests",
+        "https://test.net/scripts/java/script-42",
+        }
 
     with open(path_file, "r", encoding="utf-8") as correct_file:
         soup = BeautifulSoup(correct_file, "html.parser")
-    new_img_list = []
-    for img in soup.find_all("img"):
-        new_img_list.append(img["src"])
 
-    assert new_img_list == ["test-net_files/test-net-assets-professions-python.png",
-                            "test-net_files/test-net-img.jpg"]
+    all_tags = set()
+    for img in soup.find_all("img"):
+        all_tags.add(img["src"])
+    for script in soup.find_all("script"):
+        if script.has_attr("src"):
+            all_tags.add(script["src"])
+    for link in soup.find_all("link"):
+        all_tags.add(link["href"])
+
+    chanched_tags = {
+        "test-net_files/test-net-assets-professions-python.png",
+        "test-net_files/test-net-scripts-java-script-42",
+        "test-net_files/test-net-page-path-part",
+        "test-net_files/test-net-page-tests",
+    }
+    assert chanched_tags.issubset(all_tags)
 
 
 def test_parse_img_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
         file.write(fixture_html_2)
-    result_list = parse_img_link(path_file, url="https://test.net", only_local_img=False)
+    tags = ["img", "script", "link"]
+    all_link = set(parse_content_link(path_file, "https://test.net", tags=tags, only_local_content=False))
 
-    assert result_list == ["https://test.net/assets/professions/python.png",
-                           "https://i.ytimg.com/vi/mpvdTb2J9dg/hqdefault.jpg",
-                           "https://yan.de.re/tests/path"]
+    assert all_link == {
+        "https://test.net/assets/professions/python.png",
+        "https://i.ytimg.com/vi/mpvdTb2J9dg/hqdefault.jpg",
+        "https://yan.de.re/tests/path",
+        "https://test.net/scripts/java/script-42",
+        "https://java.org/script/85",
+        "https://java.org/script/99",
+        "https://tests.org/page/path",
+        "https://test.net/page/path/part",
+        "https://yan.de.re/tests/path",
+        "https://test.net/page/tests",
+    }
 
     with open(path_file, "r", encoding="utf-8") as correct_file:
         soup = BeautifulSoup(correct_file, "html.parser")
-    new_img_list = []
-    for img in soup.find_all("img"):
-        new_img_list.append(img["src"])
 
-    assert new_img_list == ["test-net_files/test-net-assets-professions-python.png",
-                            "test-net_files/i-ytimg-com-vi-mpvdTb2J9dg-hqdefault.jpg",
-                            "test-net_files/yan-de-re-tests-path"]
+    all_tags = set()
+    for img in soup.find_all("img"):
+        all_tags.add(img["src"])
+    for script in soup.find_all("script"):
+        if script.has_attr("src"):
+            all_tags.add(script["src"])
+    for link in soup.find_all("link"):
+        all_tags.add(link["href"])
+    all_tags_file = {
+        "test-net_files/test-net-assets-professions-python.png",
+        "test-net_files/i-ytimg-com-vi-mpvdTb2J9dg-hqdefault.jpg",
+        "test-net_files/yan-de-re-tests-path",
+        "test-net_files/test-net-scripts-java-script-42",
+        "test-net_files/java-org-script-85",
+        "test-net_files/java-org-script-99",
+        "test-net_files/tests-org-page-path",
+        "test-net_files/test-net-page-path-part",
+        "test-net_files/yan-de-re-tests-path",
+        "test-net_files/test-net-page-tests",
+    }
+    assert all_tags == all_tags_file

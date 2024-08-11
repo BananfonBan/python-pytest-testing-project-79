@@ -19,31 +19,36 @@ def url_to_name(url):
     return f"{parse_hostname}{parse_path}"
 
 
-def parse_img_link(path_to_html_file, url, only_local_img=True):
+# TODO Сделать цикл for через soup([Сисок тегов])
+def parse_content_link(path_to_html_file, url, tags: list, only_local_content=True):
     with open(path_to_html_file, "r", encoding="utf-8") as html_file:
         soup = BeautifulSoup(html_file, "html.parser")
+    attrs_tag = {"img": "src", "link": "href", "script": "src"}
     # Создает список со всеми ссылками на изображения
     # И изменяет ссылки в html файлы на локальные пути до изображений
     dir_name = f"{url_to_name(url)}_files"
     url_hostname = Url(url).get_hostname()
-    img_list = []
-    for img in soup("img"):
-        img_link = url_normalize(img["src"])
-        local_link = img_link[0] == "/" and img_link[:2] != "//"
-        identical_hostname = Url(img_link).get_hostname() == url_hostname
+    content_link_list = []
+    for tag in soup(tags):
+        tag_attr = attrs_tag[f"{tag.name}"]
+        if not tag.has_attr(tag_attr):
+            continue
+        content_link = url_normalize(tag[tag_attr])
+        local_link = content_link[0] == "/" and content_link[:2] != "//"
+        identical_hostname = Url(content_link).get_hostname() == url_hostname
         # Формирование и изменение на локальную ссылку
         if local_link or identical_hostname:
-            img_link = urljoin(f"https://{url_hostname}", img_link)
-            img["src"] = f"{dir_name}/{url_to_name(img_link)}"
-            img_list.append(img_link)
-        elif (not only_local_img) and img_link[:4] == "http":
-            img_name = url_to_name(img_link)
-            img["src"] = f"{dir_name}/{img_name}"
-            img_list.append(img_link)
+            content_link = urljoin(f"https://{url_hostname}", content_link)
+            tag[tag_attr] = f"{dir_name}/{url_to_name(content_link)}"
+            content_link_list.append(content_link)
+        elif (not only_local_content) and content_link[:4] == "http":
+            img_name = url_to_name(content_link)
+            tag[tag_attr] = f"{dir_name}/{img_name}"
+            content_link_list.append(content_link)
 
     with open(path_to_html_file, "w", encoding="utf-8") as file:
         file.write(str(soup))
-    return img_list
+    return content_link_list
 
 
 def download(url, path_to_file=Path.cwd(), client=requests):
@@ -77,18 +82,20 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     return file_path
 
 
-def download_img(path_to_dir, url, client=requests):
-    img_name = url_to_name(url)
+def download_content(path_to_dir, url, client=requests):
+    content_name = url_to_name(url)
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
+    content_path = Url(url).get_path()
+    content_extension = os.path.splitext(content_path)[1]
+    correct_extensions = [".png", ".jpg", ".JPG" ".gif",
+                          ".js", ".css", ".json", ".svg", ".ico"]
+    if content_extension not in correct_extensions:
+        return download(path_to_file=path_to_dir, url=url)
     try:
         request = client.get(url, headers=headers)
-        correct_extension = ["png", "jpg", "gif", "JPG",]
         if request.ok:
-            if img_name[-3:] in correct_extension:
-                path_img = f"{path_to_dir}/{img_name}"
-            else:
-                path_img = f"{path_to_dir}/{img_name}.jpg"
+            path_img = f"{path_to_dir}/{content_name}"
             with open(path_img, "wb") as file:
                 file.write(request.content)
             return path_img
@@ -96,13 +103,22 @@ def download_img(path_to_dir, url, client=requests):
         pass
 
 
-def make_dir_with_files(path_to_dir, url):
+def make_dir_with_files(path_to_dir, url, only_local_content=True):
     name_dir = url_to_name(url) + "_files"
     dir_path = f"{path_to_dir}/{name_dir}"
     os.mkdir(dir_path)
 
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
-    img_link_list = parse_img_link(html_file_path, url)
+    tags = ["img", "link", "script"]
+    content_links = parse_content_link(html_file_path, url, tags=tags, only_local_content=only_local_content)
 
-    for img_link in img_link_list:
-        download_img(dir_path, img_link)
+    for img_link in content_links:
+        download_content(dir_path, img_link)
+
+
+if __name__ == "__main__":
+    path = r"C:\Users\Admin\Desktop"
+    url = "https://psycabi.net/testy/553-tsvetovoj-test-lyushera-polnyj-variant-metodiki"
+    tags = ["img", "link", "script"]
+    download(path_to_file=path, url=url)
+    make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
