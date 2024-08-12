@@ -14,7 +14,12 @@ def page_loader_in_line():
                         default=os.getcwd())
     parser.add_argument("url", type=str,
                         help="The URL of the site where the html code is downloaded from")
+    parser.add_argument("--nolocal", action="store_true",
+                        help="If enabled, resources from third-party domains\
+                            used on this page will also be downloaded")
     args = parser.parse_args()
+    only_local = False if args.nolocal else True
     path_file = download(url=args.url, path_to_file=args.output)
-    make_dir_with_files(url=args.url, path_to_dir=args.output)
+    make_dir_with_files(url=args.url, path_to_dir=args.output,
+                        only_local_content=only_local)
     print(path_file)

@@ -179,7 +179,8 @@ def test_parse_img_link(tmp_path, fixture_html_2):
     with open(path_file, "w", encoding="utf-8") as file:
         file.write(fixture_html_2)
     tags = ["img", "script", "link"]
-    all_link = set(parse_content_link(path_file, "https://test.net", tags=tags, only_local_content=False))
+    all_link = set(parse_content_link(path_file, "https://test.net",
+                                      tags=tags, only_local_content=False))
 
     assert all_link == {
         "https://test.net/assets/professions/python.png",

@@ -19,7 +19,6 @@ def url_to_name(url):
     return f"{parse_hostname}{parse_path}"
 
 
-# TODO Сделать цикл for через soup([Сисок тегов])
 def parse_content_link(path_to_html_file, url, tags: list, only_local_content=True):
     with open(path_to_html_file, "r", encoding="utf-8") as html_file:
         soup = BeautifulSoup(html_file, "html.parser")
@@ -29,7 +28,9 @@ def parse_content_link(path_to_html_file, url, tags: list, only_local_content=Tr
     dir_name = f"{url_to_name(url)}_files"
     url_hostname = Url(url).get_hostname()
     content_link_list = []
+
     for tag in soup(tags):
+        # Определяем из какого атрибута брать ссылку
         tag_attr = attrs_tag[f"{tag.name}"]
         if not tag.has_attr(tag_attr):
             continue
@@ -68,16 +69,21 @@ def download(url, path_to_file=Path.cwd(), client=requests):
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
 
     # Отправляем запрос с заголовками по нужному адресу
-    req = client.get(url=url, headers=headers)
-
+    try:
+        req = client.get(url=url, headers=headers)
+    except requests.exceptions.InvalidURL:
+        return None
     # Считываем текст HTML-документа
     src = req.text
 
     name_file = url_to_name(url)
     file_path = os.path.normpath(os.path.join(path_to_file, f"{name_file}.html"))
     # Записываем в файл в указанной директории
-    with open(file_path, "w", encoding="utf-8") as myfile:
-        myfile.write(src)
+    try:
+        with open(file_path, "w", encoding="utf-8") as myfile:
+            myfile.write(src)
+    except FileNotFoundError:
+        return None
 
     return file_path
 
@@ -86,6 +92,7 @@ def download_content(path_to_dir, url, client=requests):
     content_name = url_to_name(url)
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
+    # Определение расширение файла
     content_path = Url(url).get_path()
     content_extension = os.path.splitext(content_path)[1]
     correct_extensions = [".png", ".jpg", ".JPG" ".gif",
@@ -110,7 +117,9 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
 
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
     tags = ["img", "link", "script"]
-    content_links = parse_content_link(html_file_path, url, tags=tags, only_local_content=only_local_content)
+
+    content_links = parse_content_link(html_file_path, url, tags=tags,
+                                       only_local_content=only_local_content)
 
     for img_link in content_links:
         download_content(dir_path, img_link)
