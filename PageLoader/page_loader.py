@@ -59,33 +59,32 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     # Если директории не существует, вызывается ошибка
     if not Path(path_to_file).exists():
         raise FileNotFoundError("The directory does not exist")
-
     # Говорим веб-серверу, что хотим получить html
     st_accept = "text/html"
-
     # Формируем хеш заголовков
     headers = {"Accept": st_accept,
                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
-
     # Отправляем запрос с заголовками по нужному адресу
     try:
         req = client.get(url=url, headers=headers)
-    except requests.exceptions.InvalidURL:
+    except requests.exceptions.ConnectionError as e:
+        print(e, "Connection fail")
         return None
-    # Считываем текст HTML-документа
-    src = req.text
-
-    name_file = url_to_name(url)
-    file_path = os.path.normpath(os.path.join(path_to_file, f"{name_file}.html"))
-    # Записываем в файл в указанной директории
-    try:
-        with open(file_path, "w", encoding="utf-8") as myfile:
-            myfile.write(src)
-    except FileNotFoundError:
+    if req.ok:
+        # Считываем текст HTML-документа
+        src = req.text
+        name_file = url_to_name(url)
+        file_path = os.path.normpath(os.path.join(path_to_file, f"{name_file}.html"))
+        # Записываем в файл в указанной директории
+        try:
+            with open(file_path, "w", encoding="utf-8") as myfile:
+                myfile.write(src)
+        except FileNotFoundError:
+            return None
+        return file_path
+    else:
         return None
-
-    return file_path
 
 
 def download_content(path_to_dir, url, client=requests):
@@ -95,7 +94,7 @@ def download_content(path_to_dir, url, client=requests):
     # Определение расширение файла
     content_path = Url(url).get_path()
     content_extension = os.path.splitext(content_path)[1]
-    correct_extensions = [".png", ".jpg", ".JPG" ".gif",
+    correct_extensions = [".png", ".jpg", ".JPG", ".gif",
                           ".js", ".css", ".json", ".svg", ".ico"]
     if content_extension not in correct_extensions:
         return download(path_to_file=path_to_dir, url=url)
@@ -125,9 +124,10 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
         download_content(dir_path, img_link)
 
 
-if __name__ == "__main__":
-    path = r"C:\Users\Admin\Desktop"
-    url = "https://psycabi.net/testy/553-tsvetovoj-test-lyushera-polnyj-variant-metodiki"
-    tags = ["img", "link", "script"]
-    download(path_to_file=path, url=url)
-    make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
+# if __name__ == "__main__":
+    # path = r"C:\Users\Admin\Desktop"
+    # url = ""
+    # tags = ["img", "link", "script"]
+    # download_content(path_to_dir=path, url=url)
+    # download(path_to_file=path, url=url)
+    # make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
