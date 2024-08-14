@@ -1,9 +1,15 @@
 import os
 from pathlib import Path
+import logging
 import pytest
 from bs4 import BeautifulSoup
 import pook
 from PageLoader.page_loader import download, download_content, parse_content_link, url_to_name
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                    level=logging.DEBUG)
 
 
 class fake_request:

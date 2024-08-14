@@ -1,6 +1,12 @@
 import os
 import argparse
+import logging
 from PageLoader.page_loader import download, make_dir_with_files
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                    level=logging.DEBUG)
 
 
 def page_loader_in_line():
