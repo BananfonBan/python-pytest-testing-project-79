@@ -124,7 +124,8 @@ def download_content(path_to_dir, url, client=requests):
             path_content = f"{path_to_dir}/{content_name}"
             with open(path_content, "wb") as file:
                 file.write(request.content)
-            logger.debug(f"The content has been downloaded successfully. The path to it:\n{path_content}")
+            logger.debug("The content has been downloaded successfully.")
+            logger.debug(f"The path to it:\n{path_content}")
             return path_content
         else:
             logger.warn(f"Couldn't connect to the url\nurl={url}")
@@ -154,7 +155,8 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
             undownloaded_content.append(content_link)
     # Если есть не скаченные ресурсы, сообщаем об этом
     if len(undownloaded_content):
-        logger.info(f"The download assets was successful, but some resources could not be downloaded:\n{undownloaded_content}")
+        logger.info("The download assets was successful,")
+        logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
     else:
         logger.info("The download assets was successful")
 
