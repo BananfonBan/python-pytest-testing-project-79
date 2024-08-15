@@ -24,13 +24,17 @@ def url_to_name(url):
     return result
 
 
-def parse_content_link(path_to_html_file, url, tags: list, only_local_content=True):
-    if Path(path_to_html_file).exists():
+def parse_content_link(path_to_html_file, url, only_local_content=True):
+    try:
         with open(path_to_html_file, "r", encoding="utf-8") as html_file:
             soup = BeautifulSoup(html_file, "html.parser")
-    else:
-        logger.warning(f"File {path_to_html_file} does not exists")
-        raise FileNotFoundError("File does not exists")
+    except PermissionError:
+        logger.error("There are no appropriate permissions for this file")
+        raise PermissionError
+    except FileNotFoundError:
+        logger.error(f"The file was not found. Path:\n{path_to_html_file}")
+        raise FileNotFoundError
+    tags = ["img", "link", "script"]
     attrs_tag = {"img": "src", "link": "href", "script": "src"}
     # Создает список со всеми ссылками на изображения
     # И изменяет ссылки в html файлы на локальные пути до изображений
@@ -75,9 +79,6 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     """Creates a file with the html code of the specified url
     in the specified directory
     """
-    # Если директории не существует, вызывается ошибка
-    if not Path(path_to_file).exists():
-        raise FileNotFoundError("The directory does not exist")
     # Говорим веб-серверу, что хотим получить html
     st_accept = "text/html"
     # Формируем хеш заголовков
@@ -87,8 +88,13 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     # Отправляем запрос с заголовками по нужному адресу
     try:
         req = client.get(url=url, headers=headers)
-    except Exception:
-        logger.warning("Connection fail")
+    except requests.exceptions.ConnectionError as err:
+        logger.error(f"The url content could not be downloaded\nurl={url}")
+        logger.error(f"Connection error {err}")
+        return None
+    except requests.exceptions.HTTPError as err:
+        logger.error(f"The url content could not be downloaded\nurl={url}")
+        logger.error(f"HTTP error {err}")
         return None
     if req.ok:
         # Считываем текст HTML-документа
@@ -100,12 +106,13 @@ def download(url, path_to_file=Path.cwd(), client=requests):
             logger.debug(f"write html file: {file_path}")
             with open(file_path, "w", encoding="utf-8") as myfile:
                 myfile.write(src)
+        except PermissionError:
+            logger.error("There are no appropriate permissions for this file")
+            raise PermissionError
         except FileNotFoundError:
-            return None
+            logger.error(f"The file was not found. Path:\n{file_path}")
+            raise FileNotFoundError
         return file_path
-    else:
-        logger.warning("Connection fail")
-        return None
 
 
 def download_content(path_to_dir, url, client=requests):
@@ -120,19 +127,21 @@ def download_content(path_to_dir, url, client=requests):
         return download(path_to_file=path_to_dir, url=url)
     try:
         request = client.get(url, headers=headers)
-        if request.ok:
-            path_content = f"{path_to_dir}/{content_name}"
-            with open(path_content, "wb") as file:
-                file.write(request.content)
-            logger.debug("The content has been downloaded successfully.")
-            logger.debug(f"The path to it:\n{path_content}")
-            return path_content
-        else:
-            logger.warn(f"Couldn't connect to the url\nurl={url}")
-            return None
-    except requests.RequestException:
-        logger.warn(f"The url content could not be downloaded\nurl={url}")
+    except requests.exceptions.ConnectionError as err:
+        logger.error(f"The url content could not be downloaded\nurl={url}")
+        logger.error(f"Connection error {err}")
         return None
+    except requests.exceptions.HTTPError as err:
+        logger.error(f"The url content could not be downloaded\nurl={url}")
+        logger.error(f"HTTP error {err}")
+        return None
+    if request.ok:
+        path_content = f"{path_to_dir}/{content_name}"
+        with open(path_content, "wb") as file:
+            file.write(request.content)
+        logger.debug("The content has been downloaded successfully.")
+        logger.debug(f"The path to it:\n{path_content}")
+        return path_content
 
 
 def make_dir_with_files(path_to_dir, url, only_local_content=True):
@@ -142,10 +151,9 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
     os.mkdir(dir_path)
 
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
-    tags = ["img", "link", "script"]
     logger.debug(f"html_file_path={html_file_path}")
 
-    content_links = parse_content_link(html_file_path, url, tags=tags,
+    content_links = parse_content_link(html_file_path, url,
                                        only_local_content=only_local_content)
 
     undownloaded_content = []

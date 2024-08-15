@@ -149,8 +149,7 @@ def test_parse_local_content_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
         file.write(fixture_html_2)
-    tags = ["img", "script", "link"]
-    local_link = set(parse_content_link(path_file, "https://test.net", tags=tags))
+    local_link = set(parse_content_link(path_file, "https://test.net"))
 
     assert local_link == {
         "https://test.net/assets/professions/python.png",
@@ -184,9 +183,8 @@ def test_parse_img_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
         file.write(fixture_html_2)
-    tags = ["img", "script", "link"]
     all_link = set(parse_content_link(path_file, "https://test.net",
-                                      tags=tags, only_local_content=False))
+                                      only_local_content=False))
 
     assert all_link == {
         "https://test.net/assets/professions/python.png",
@@ -225,3 +223,14 @@ def test_parse_img_link(tmp_path, fixture_html_2):
         "test-net_files/test-net-page-tests",
     }
     assert all_tags == all_tags_file
+
+
+def test_except_parse_content_link():
+    with pytest.raises(FileNotFoundError):
+        parse_content_link("/tests/fixture.html", "https://www.tests.com")
+
+
+def test_except_dowload(tmp_path, fixture_html_1):
+    with pytest.raises(FileNotFoundError):
+        download("test.com/example", f"{tmp_path}/notfound",
+                 client=fake_request(fixture_html_1))
