@@ -1,17 +1,23 @@
 import os
+import sys
 from pathlib import Path
 import re
 import logging
 from urllib.parse import urljoin
 import requests
+from bs4 import BeautifulSoup
+from url_normalize import url_normalize
 if __name__ == "__main__":
     from UrlClass import Url
 else:
     from PageLoader.UrlClass import Url
-from bs4 import BeautifulSoup
-from url_normalize import url_normalize
+
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format='[%(asctime)s.%(msecs)03d] %(module)10s:%(lineno)3d %(levelname)7s - %(message)s',
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO)
 
 
 def url_to_name(url):
@@ -25,15 +31,10 @@ def url_to_name(url):
 
 
 def parse_content_link(path_to_html_file, url, only_local_content=True):
-    try:
-        with open(path_to_html_file, "r", encoding="utf-8") as html_file:
-            soup = BeautifulSoup(html_file, "html.parser")
-    except PermissionError:
-        logger.error("There are no appropriate permissions for this file")
-        raise PermissionError
-    except FileNotFoundError:
-        logger.error(f"The file was not found. Path:\n{path_to_html_file}")
-        raise FileNotFoundError
+    if not Path(path_to_html_file).exists():
+        raise FileNotFoundError("The html file was not found")
+    with open(path_to_html_file, "r", encoding="utf-8") as html_file:
+        soup = BeautifulSoup(html_file, "html.parser")
     tags = ["img", "link", "script"]
     attrs_tag = {"img": "src", "link": "href", "script": "src"}
     # Создает список со всеми ссылками на изображения
@@ -76,81 +77,56 @@ def parse_content_link(path_to_html_file, url, only_local_content=True):
 
 
 def download(url, path_to_file=Path.cwd(), client=requests):
-    """Creates a file with the html code of the specified url
-    in the specified directory
-    """
-    # Говорим веб-серверу, что хотим получить html
-    st_accept = "text/html"
-    # Формируем хеш заголовков
-    headers = {"Accept": st_accept,
-               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-               AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
-    # Отправляем запрос с заголовками по нужному адресу
-    try:
-        req = client.get(url=url, headers=headers)
-    except requests.exceptions.ConnectionError as err:
-        logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"Connection error {err}")
-        return None
-    except requests.exceptions.HTTPError as err:
-        logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"HTTP error {err}")
-        return None
-    if req.ok:
-        # Считываем текст HTML-документа
-        src = req.text
-        name_file = url_to_name(url)
-        file_path = os.path.normpath(os.path.join(path_to_file, f"{name_file}.html"))
-        # Записываем в файл в указанной директории
-        try:
-            logger.debug(f"write html file: {file_path}")
-            with open(file_path, "w", encoding="utf-8") as myfile:
-                myfile.write(src)
-        except PermissionError:
-            logger.error("There are no appropriate permissions for this file")
-            raise PermissionError
-        except FileNotFoundError:
-            logger.error(f"The file was not found. Path:\n{file_path}")
-            raise FileNotFoundError
-        return file_path
+    if not Path(path_to_file).exists():
+        raise FileNotFoundError("The path to the directory was not found")
 
-
-def download_content(path_to_dir, url, client=requests):
     content_name = url_to_name(url)
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
                AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
     # Определение расширение файла
     content_path = Url(url).get_path()
     content_extension = os.path.splitext(content_path)[1]
-    logger.debug(f"content_extension={content_extension}")
-    if content_extension == ".html" or content_extension == "":
-        return download(path_to_file=path_to_dir, url=url)
     try:
         request = client.get(url, headers=headers)
     except requests.exceptions.ConnectionError as err:
         logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"Connection error {err}")
+        logger.error(f"Connection error:\n{err}")
         return None
     except requests.exceptions.HTTPError as err:
         logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"HTTP error {err}")
+        logger.error(f"HTTP error:\n{err}")
         return None
     if request.ok:
-        path_content = f"{path_to_dir}/{content_name}"
-        with open(path_content, "wb") as file:
-            file.write(request.content)
+        path_content = f"{path_to_file}/{content_name}"
+        try:
+            if content_extension == "":
+                path_content = f"{path_content}.html"
+                with open(path_content, "w", encoding="utf-8") as file:
+                    file.write(request.text)
+            else:
+                with open(path_content, "wb") as file:
+                    file.write(request.content)
+        except PermissionError:
+            logger.error("You do not have the appropriate rights to write files")
+            sys.exit(1)
         logger.debug("The content has been downloaded successfully.")
         logger.debug(f"The path to it:\n{path_content}")
         return path_content
 
 
-def make_dir_with_files(path_to_dir, url, only_local_content=True):
-    name_dir = url_to_name(url) + "_files"
-    dir_path = f"{path_to_dir}/{name_dir}"
+def make_dir_with_content(path_to_dir, url, only_local_content=True):
+    if not Path(path_to_dir).exists():
+        raise FileNotFoundError("The path to the directory was not found")
+    name_dir = f"{url_to_name(url)}_files"
+    dir_path = os.path.normpath(f"{path_to_dir}/{name_dir}")
     logger.info(f"create directory for assets: {dir_path}")
-    os.mkdir(dir_path)
-
+    try:
+        os.mkdir(dir_path)
+    except PermissionError:
+        logger.error("You do not have the appropriate rights to create directory")
+        sys.exit(1)
     html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
+
     logger.debug(f"html_file_path={html_file_path}")
 
     content_links = parse_content_link(html_file_path, url,
@@ -158,7 +134,7 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
 
     undownloaded_content = []
     for content_link in content_links:
-        result = download_content(dir_path, content_link)
+        result = download(url=content_link, path_to_file=dir_path)
         if result is None:
             undownloaded_content.append(content_link)
     # Если есть не скаченные ресурсы, сообщаем об этом
@@ -172,22 +148,21 @@ def make_dir_with_files(path_to_dir, url, only_local_content=True):
 def full_download(url, path, only_local_content=True):
     logger.info(f"requested url:{url}")
     logger.info(f"output path: {path}")
-    path_html_page = download(url=url, path_to_file=path)
+    try:
+        path_html_page = download(url=url, path_to_file=path)
+    except FileNotFoundError:
+        logger.error("The specified directory does not exist")
+        sys.exit(1)
     logger.info(f"write html file: {path_html_page}")
-    make_dir_with_files(url=url, path_to_dir=path,
-                        only_local_content=only_local_content)
-    logger.info("The download was successful")
+    make_dir_with_content(url=url, path_to_dir=path,
+                          only_local_content=only_local_content)
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(
-        format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.INFO)
     path = r"C:\Users\Admin\Desktop"
-    url = "https://ru.hexlet.io/courses/cli-basics"
+    url = "https://ru.hexlet.io/courses/python-compound-data"
     tags = ["img", "link", "script"]
     # download_content(path_to_dir=path, url=url)
-    download(path_to_file=path, url=url)
-    make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
+    # download(path_to_file=path, url=url)
+    # make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
+    full_download(url=url, path=path, only_local_content=False)

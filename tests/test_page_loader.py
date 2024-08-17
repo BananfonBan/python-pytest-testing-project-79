@@ -4,7 +4,8 @@ import logging
 import pytest
 from bs4 import BeautifulSoup
 import pook
-from PageLoader.page_loader import download, download_content, parse_content_link, url_to_name
+from PageLoader.page_loader import download, parse_content_link
+from PageLoader.page_loader import url_to_name, make_dir_with_content
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',
@@ -108,43 +109,6 @@ def test_download_create_correct_file(tmp_path, fixture_html_1):
     assert file_data == fixture_html_1
 
 
-def test_download_img(tmp_path, fixture_img_1, fixture_img_2):
-    client_1 = fake_request(fixture_img_1)
-    client_2 = fake_request(fixture_img_2)
-
-    url_1 = "https://justcat.cute/black/cat.jpg"
-    path_img_1 = download_content(tmp_path, url_1, client=client_1)
-    path_file = Path(path_img_1)
-    with open(path_img_1, "rb") as img_file:
-        file_data = img_file.read()
-
-    assert path_file.exists()
-    assert file_data == fixture_img_1
-
-    url_2 = "https://sciense.co/chemists/avagadro.png"
-    path_img_2 = download_content(tmp_path, url_2, client=client_2)
-    path_file = Path(path_img_2)
-    with open(path_img_2, "rb") as img_file:
-        file_data = img_file.read()
-
-    assert path_file.exists()
-    assert file_data == fixture_img_2
-
-
-@pook.on
-def test_download_img_requests(tmp_path):
-    mock_1 = pook.get('http://test.jpg')
-    assert mock_1.calls == 0
-
-    download_content(url="http://test.jpg", path_to_dir=tmp_path)
-    assert mock_1.calls == 1
-
-    mock_2 = pook.get("http://test_2/something.png", reply=404)
-    result = download_content(url="http://test_2/something.png", path_to_dir=tmp_path)
-    assert mock_2.calls == 1
-    assert result is None
-
-
 def test_parse_local_content_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
@@ -225,12 +189,18 @@ def test_parse_img_link(tmp_path, fixture_html_2):
     assert all_tags == all_tags_file
 
 
-def test_except_parse_content_link():
+def test_except_parse_content_link(tmp_path):
     with pytest.raises(FileNotFoundError):
-        parse_content_link("/tests/fixture.html", "https://www.tests.com")
+        parse_content_link(f"{tmp_path}/tests/fixture.html", "https://www.tests.com")
 
 
 def test_except_dowload(tmp_path, fixture_html_1):
     with pytest.raises(FileNotFoundError):
         download("test.com/example", f"{tmp_path}/notfound",
                  client=fake_request(fixture_html_1))
+
+
+def test_except_make_dir(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        make_dir_with_content(f"{tmp_path}/notexist",
+                              "http://tests.co/page1")
