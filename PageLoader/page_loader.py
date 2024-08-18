@@ -7,10 +7,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 from url_normalize import url_normalize
-if __name__ == "__main__":
-    from UrlClass import Url
-else:
-    from PageLoader.UrlClass import Url
+from .UrlClass import Url
 
 
 logger = logging.getLogger(__name__)
@@ -137,8 +134,10 @@ def make_dir_with_content(path_to_dir, url, only_local_content=True):
                 undownloaded_content.append(content_link)
         # Если есть не скаченные ресурсы, сообщаем об этом
         if len(undownloaded_content):
+            len_ = len(undownloaded_content)
             logger.info("The download assets was successful,")
             logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
+            logger.info(f"The number of resources that could not be downloaded\n{len_}")
         else:
             logger.info("The download assets was successful")
 
