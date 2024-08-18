@@ -14,10 +14,6 @@ else:
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    format='[%(asctime)s.%(msecs)03d] %(module)10s:%(lineno)3d %(levelname)7s - %(message)s',
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO)
 
 
 def url_to_name(url):
@@ -88,6 +84,9 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     content_extension = os.path.splitext(content_path)[1]
     try:
         request = client.get(url, headers=headers)
+    except requests.exceptions.InvalidURL as err:
+        logger.error(f"Invalid url:\n{err}")
+        return None
     except requests.exceptions.ConnectionError as err:
         logger.error(f"The url content could not be downloaded\nurl={url}")
         logger.error(f"Connection error:\n{err}")
@@ -125,24 +124,25 @@ def make_dir_with_content(path_to_dir, url, only_local_content=True):
     except PermissionError:
         logger.error("You do not have the appropriate rights to create directory")
         sys.exit(1)
-    html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
-
-    logger.debug(f"html_file_path={html_file_path}")
-
-    content_links = parse_content_link(html_file_path, url,
-                                       only_local_content=only_local_content)
-
-    undownloaded_content = []
-    for content_link in content_links:
-        result = download(url=content_link, path_to_file=dir_path)
-        if result is None:
-            undownloaded_content.append(content_link)
-    # Если есть не скаченные ресурсы, сообщаем об этом
-    if len(undownloaded_content):
-        logger.info("The download assets was successful,")
-        logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
     else:
-        logger.info("The download assets was successful")
+        html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
+
+        logger.debug(f"html_file_path={html_file_path}")
+
+        content_links = parse_content_link(html_file_path, url,
+                                           only_local_content=only_local_content)
+
+        undownloaded_content = []
+        for content_link in content_links:
+            result = download(url=content_link, path_to_file=dir_path)
+            if result is None:
+                undownloaded_content.append(content_link)
+        # Если есть не скаченные ресурсы, сообщаем об этом
+        if len(undownloaded_content):
+            logger.info("The download assets was successful,")
+            logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
+        else:
+            logger.info("The download assets was successful")
 
 
 def full_download(url, path, only_local_content=True):
@@ -150,19 +150,26 @@ def full_download(url, path, only_local_content=True):
     logger.info(f"output path: {path}")
     try:
         path_html_page = download(url=url, path_to_file=path)
+    except requests.exceptions.MissingSchema:
+        logger.error("Invalid url scheme")
+        sys.exit(0)
     except FileNotFoundError:
         logger.error("The specified directory does not exist")
         sys.exit(1)
     logger.info(f"write html file: {path_html_page}")
     make_dir_with_content(url=url, path_to_dir=path,
                           only_local_content=only_local_content)
+    logger.info("The download was successful")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        format='[%(asctime)s.%(msecs)03d] %(module)10s:%(lineno)3d %(levelname)7s - %(message)s',
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO)
     path = r"C:\Users\Admin\Desktop"
-    url = "https://ru.hexlet.io/courses/python-compound-data"
-    tags = ["img", "link", "script"]
+    url = "https://en.wikipedia.org/wiki/Main_Page"
     # download_content(path_to_dir=path, url=url)
     # download(path_to_file=path, url=url)
     # make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
-    full_download(url=url, path=path, only_local_content=False)
+    full_download(url=url, path=path, only_local_content=True)
