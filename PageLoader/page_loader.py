@@ -72,7 +72,7 @@ def parse_content_link(path_to_html_file, url, only_local_content=True):
     return content_links_list
 
 
-def download(url, path_to_file=Path.cwd(), client=requests):
+def download(url, path_to_file=Path.cwd(), client=requests, main_link=False):
     if not Path(path_to_file).exists():
         raise FileNotFoundError("The path to the directory was not found")
 
@@ -82,19 +82,14 @@ def download(url, path_to_file=Path.cwd(), client=requests):
     # Определение расширение файла
     content_path = Url(url).get_path()
     content_extension = os.path.splitext(content_path)[1]
-    try:
+    if main_link:
         request = client.get(url, headers=headers)
-    except requests.exceptions.InvalidURL as err:
-        logger.error(f"Invalid url:\n{err}")
-        return None
-    except requests.exceptions.ConnectionError as err:
-        logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"Connection error:\n{err}")
-        return None
-    except requests.exceptions.HTTPError as err:
-        logger.error(f"The url content could not be downloaded\nurl={url}")
-        logger.error(f"HTTP error:\n{err}")
-        return None
+    else:
+        try:
+            request = client.get(url, headers=headers)
+        except requests.RequestException:
+            logger.error(f"The url content could not be downloaded\nurl={url}")
+            return None
     if request.ok:
         path_content = f"{path_to_file}/{content_name}"
         try:
@@ -111,6 +106,8 @@ def download(url, path_to_file=Path.cwd(), client=requests):
         logger.debug("The content has been downloaded successfully.")
         logger.debug(f"The path to it:\n{path_content}")
         return path_content
+    else:
+        return None
 
 
 def make_dir_with_content(path_to_dir, url, only_local_content=True):
@@ -126,12 +123,13 @@ def make_dir_with_content(path_to_dir, url, only_local_content=True):
         sys.exit(1)
     else:
         html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
-
         logger.debug(f"html_file_path={html_file_path}")
-
-        content_links = parse_content_link(html_file_path, url,
-                                           only_local_content=only_local_content)
-
+        try:
+            content_links = parse_content_link(html_file_path, url,
+                                               only_local_content=only_local_content)
+        except FileNotFoundError:
+            logger.error("The html file was not found")
+            sys.exit(1)
         undownloaded_content = []
         for content_link in content_links:
             result = download(url=content_link, path_to_file=dir_path)
@@ -149,9 +147,9 @@ def full_download(url, path, only_local_content=True):
     logger.info(f"requested url:{url}")
     logger.info(f"output path: {path}")
     try:
-        path_html_page = download(url=url, path_to_file=path)
-    except requests.exceptions.MissingSchema:
-        logger.error("Invalid url scheme")
+        path_html_page = download(url=url, path_to_file=path, main_link=True)
+    except requests.RequestException:
+        logger.error(f"The url content could not be downloaded\nurl={url}")
         sys.exit(0)
     except FileNotFoundError:
         logger.error("The specified directory does not exist")

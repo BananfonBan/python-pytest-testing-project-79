@@ -1,7 +1,7 @@
 import os
 import argparse
 import logging
-import PageLoader.page_loader
+from .page_loader import full_download
 
 
 def page_loader_in_line():
@@ -28,5 +28,5 @@ def page_loader_in_line():
         datefmt="%Y-%m-%d %H:%M:%S",
         level=log_level)
     only_local = False if args.nonlocal_ else True
-    PageLoader.page_loader.full_download(url=args.url, path=args.output,
-                                         only_local_content=only_local)
+    full_download(url=args.url, path=args.output,
+                  only_local_content=only_local)
