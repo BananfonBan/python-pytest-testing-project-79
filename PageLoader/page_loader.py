@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 import re
 import logging
@@ -25,6 +24,7 @@ def url_to_name(url):
 
 def parse_content_link(path_to_html_file, url, only_local_content=True):
     if not Path(path_to_html_file).exists():
+        logger.critical("The html file was not found")
         raise FileNotFoundError("The html file was not found")
     with open(path_to_html_file, "r", encoding="utf-8") as html_file:
         soup = BeautifulSoup(html_file, "html.parser")
@@ -79,27 +79,23 @@ def download(url, path_to_file=Path.cwd(), client=requests, main_link=False):
     # Определение расширение файла
     content_path = Url(url).get_path()
     content_extension = os.path.splitext(content_path)[1]
+    path_content = f"{path_to_file}/{content_name}"
     if main_link:
         request = client.get(url, headers=headers)
     else:
         try:
             request = client.get(url, headers=headers)
         except requests.RequestException:
-            logger.error(f"The url content could not be downloaded\nurl={url}")
+            logger.warning(f"The url content could not be downloaded\nurl={url}")
             return None
     if request.ok:
-        path_content = f"{path_to_file}/{content_name}"
-        try:
-            if content_extension == "":
-                path_content = f"{path_content}.html"
-                with open(path_content, "w", encoding="utf-8") as file:
-                    file.write(request.text)
-            else:
-                with open(path_content, "wb") as file:
-                    file.write(request.content)
-        except PermissionError:
-            logger.error("You do not have the appropriate rights to write files")
-            sys.exit(1)
+        if content_extension == "":
+            path_content = f"{path_content}.html"
+            with open(path_content, "w", encoding="utf-8") as file:
+                file.write(request.text)
+        else:
+            with open(path_content, "wb") as file:
+                file.write(request.content)
         logger.debug("The content has been downloaded successfully.")
         logger.debug(f"The path to it:\n{path_content}")
         return path_content
@@ -107,52 +103,40 @@ def download(url, path_to_file=Path.cwd(), client=requests, main_link=False):
         return None
 
 
-def make_dir_with_content(path_to_dir, url, only_local_content=True):
+def make_dir_with_content(path_to_dir, url, only_local_content=True, client=requests):
     if not Path(path_to_dir).exists():
-        raise FileNotFoundError("The path to the directory was not found")
+        logger.critical("The path to the directory was not found")
+        raise FileNotFoundError
+
     name_dir = f"{url_to_name(url)}_files"
     dir_path = os.path.normpath(f"{path_to_dir}/{name_dir}")
+    html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
+
     logger.info(f"create directory for assets: {dir_path}")
-    try:
-        os.mkdir(dir_path)
-    except PermissionError:
-        logger.error("You do not have the appropriate rights to create directory")
-        sys.exit(1)
+    os.mkdir(dir_path)
+    logger.debug(f"html_file_path={html_file_path}")
+    content_links = parse_content_link(html_file_path, url,
+                                       only_local_content=only_local_content)
+    undownloaded_content = []
+    for content_link in content_links:
+        result = download(url=content_link, path_to_file=dir_path, client=client)
+        if result is None:
+            undownloaded_content.append(content_link)
+    # Если есть не скаченные ресурсы, сообщаем об этом
+    if len(undownloaded_content):
+        len_ = len(undownloaded_content)
+        logger.info("The download assets was successful,")
+        logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
+        logger.info(f"The number of resources that could not be downloaded\n{len_}")
     else:
-        html_file_path = f"{path_to_dir}/{url_to_name(url)}.html"
-        logger.debug(f"html_file_path={html_file_path}")
-        try:
-            content_links = parse_content_link(html_file_path, url,
-                                               only_local_content=only_local_content)
-        except FileNotFoundError:
-            logger.error("The html file was not found")
-            sys.exit(1)
-        undownloaded_content = []
-        for content_link in content_links:
-            result = download(url=content_link, path_to_file=dir_path)
-            if result is None:
-                undownloaded_content.append(content_link)
-        # Если есть не скаченные ресурсы, сообщаем об этом
-        if len(undownloaded_content):
-            len_ = len(undownloaded_content)
-            logger.info("The download assets was successful,")
-            logger.info(f"but some resources could not be downloaded:\n{undownloaded_content}")
-            logger.info(f"The number of resources that could not be downloaded\n{len_}")
-        else:
-            logger.info("The download assets was successful")
+        logger.info("The download assets was successful")
 
 
-def full_download(url, path, only_local_content=True):
+def full_download(url, path, only_local_content=True, client=requests):
     logger.info(f"requested url:{url}")
     logger.info(f"output path: {path}")
-    try:
-        path_html_page = download(url=url, path_to_file=path, main_link=True)
-    except requests.RequestException:
-        logger.error(f"The url content could not be downloaded\nurl={url}")
-        sys.exit(0)
-    except FileNotFoundError:
-        logger.error("The specified directory does not exist")
-        sys.exit(1)
+    path_html_page = download(url=url, path_to_file=path, main_link=True,
+                              client=client)
     logger.info(f"write html file: {path_html_page}")
     make_dir_with_content(url=url, path_to_dir=path,
                           only_local_content=only_local_content)
@@ -169,4 +153,4 @@ if __name__ == "__main__":
     # download_content(path_to_dir=path, url=url)
     # download(path_to_file=path, url=url)
     # make_dir_with_files(path_to_dir=path, url=url, only_local_content=False)
-    full_download(url=url, path=path, only_local_content=True)
+    # full_download(url=url, path=path, only_local_content=True)

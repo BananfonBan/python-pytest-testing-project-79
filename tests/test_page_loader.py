@@ -5,7 +5,7 @@ import pytest
 from bs4 import BeautifulSoup
 import pook
 from PageLoader.page_loader import download, parse_content_link
-from PageLoader.page_loader import url_to_name, make_dir_with_content
+from PageLoader.page_loader import url_to_name, make_dir_with_content, full_download
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',
@@ -143,7 +143,7 @@ def test_parse_local_content_link(tmp_path, fixture_html_2):
     assert chanched_tags.issubset(all_tags)
 
 
-def test_parse_img_link(tmp_path, fixture_html_2):
+def test_parse_content_link(tmp_path, fixture_html_2):
     path_file = f"{tmp_path}/file.html"
     with open(path_file, "w", encoding="utf-8") as file:
         file.write(fixture_html_2)
@@ -204,3 +204,12 @@ def test_except_make_dir(tmp_path):
     with pytest.raises(FileNotFoundError):
         make_dir_with_content(f"{tmp_path}/notexist",
                               "http://tests.co/page1")
+
+
+def test_full_download(tmp_path, fixture_html_2, fixture_url):
+    full_download(fixture_url["url"][0], tmp_path,
+                  client=fake_request(fixture_html_2))
+
+    path_content = f"{tmp_path}/{fixture_url['name'][0]}"
+    assert Path(f"{path_content}.html").exists()
+    assert Path(f"{path_content}_files").exists()
