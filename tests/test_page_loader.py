@@ -4,8 +4,8 @@ import logging
 import pytest
 from bs4 import BeautifulSoup
 import pook
-from PageLoader.page_loader import download, parse_content_link
-from PageLoader.page_loader import url_to_name, make_dir_with_content, full_download
+from page_loader.page_loader import download, parse_content_link
+from page_loader.page_loader import url_to_name, make_dir_with_content, full_download
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s|%(levelname)s|%(filename)s|%(funcName)s:%(message)s',

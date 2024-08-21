@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "hexlet-code"
-packages = [{include = "PageLoader"}]
-version = "0.1.7"
+packages = [{include = "page_loader"}]
+version = "0.1.8"
 description = ""
 authors = ["BananfonBan <bananfonban@yandex.ru>"]
 readme = "README.md"
