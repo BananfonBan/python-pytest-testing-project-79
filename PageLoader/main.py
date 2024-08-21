@@ -66,7 +66,7 @@ def page_loader_in_line():
                         help="If enabled, resources from third-party domains\
                             used on this page will also be downloaded")
     parser.add_argument("--log", type=str, dest="loglevel",
-                        help="Determines which logging level will be used..\
+                        help="Determines which logging level will be used.\
                         By default, INFO", default="INFO")
     args = parser.parse_args()
     log_level = getattr(logging, f"{args.loglevel.upper()}", "INFO")
