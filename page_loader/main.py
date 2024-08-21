@@ -3,7 +3,7 @@ import sys
 import argparse
 import logging
 import requests
-from .page_loader import make_dir_with_content, download
+from .download import make_dir_with_content, download
 
 
 logger = logging.getLogger(__name__)
